@@ -8,38 +8,47 @@ const parseTrack2 = str => {
   return data ? { [card]: data } : {};
 };
 
-// Main parsing function
-async function parseAckrooTPSRequestsFromXML(xmlString) {
-  const matches = xmlString.match(/<AckrooTPSRequest[\s\S]*?<\/AckrooTPSRequest>/g);
+/**
+ * Parses a block of XML representing a transaction request.
+ * Accepts any root tag name (e.g., <POSRequest>, <AckrooTPSRequest>, etc.)
+ * but expects a TPS-style structure inside.
+ *
+ * @param {string} xmlString - A full XML string containing one or more transaction blocks
+ * @returns {Promise<Array<Object>>} Parsed and normalized transaction objects
+ */
+async function parseTPSRequestsFromXML(xmlString) {
+  const matches = xmlString.match(/<([a-zA-Z0-9_]+)[^>]*>[\s\S]*?<\/\1>/g); // match all root-wrapped XML blocks
   if (!matches) {
-    console.warn('No <AckrooTPSRequest> blocks found.');
+    console.warn('No valid XML blocks found.');
     return [];
   }
 
-  const parser = new xml2js.Parser({ explicitArray: false });
+  const parser = new xml2js.Parser({ explicitArray: false, trim: true });
   const results = [];
 
   for (const xml of matches) {
     try {
-      const { AckrooTPSRequest: req } = await parser.parseStringPromise(xml);
+      const parsed = await parser.parseStringPromise(xml);
+      const rootObj = Object.values(parsed)[0]; // get the contents under the root
+
       const output = {
-        transaction_type: req?.Transaction?.['$']?.Type || null,
-        source_type: req?.Source?.['$']?.Type || null,
-        lane: normalizeValue(req.Lane),
-        invoiceno: normalizeValue(req.InvoiceNo),
-        card: req.Card ? {
-          type: req.Card.Type?.toLowerCase() || null,
-          track2: req.Card.Track2 ? parseTrack2(req.Card.Track2) : {}
+        transaction_type: rootObj?.Transaction?.['$']?.Type || null,
+        source_type: rootObj?.Source?.['$']?.Type || null,
+        lane: normalizeValue(rootObj.Lane),
+        invoiceno: normalizeValue(rootObj.InvoiceNo),
+        card: rootObj.Card ? {
+          type: rootObj.Card.Type?.toLowerCase() || null,
+          track2: rootObj.Card.Track2 ? parseTrack2(rootObj.Card.Track2) : {}
         } : null,
       };
 
-      if (req.TransactionDetail) {
+      if (rootObj.TransactionDetail) {
         const detail = {};
 
-        if (req.TransactionDetail.Products) {
-          const products = Array.isArray(req.TransactionDetail.Products)
-            ? req.TransactionDetail.Products
-            : [req.TransactionDetail.Products];
+        if (rootObj.TransactionDetail.Products) {
+          const products = Array.isArray(rootObj.TransactionDetail.Products)
+            ? rootObj.TransactionDetail.Products
+            : [rootObj.TransactionDetail.Products];
 
           detail.products = products.map(product =>
             Object.fromEntries(
@@ -48,9 +57,9 @@ async function parseAckrooTPSRequestsFromXML(xmlString) {
           );
         }
 
-        if (req.TransactionDetail.Payment) {
+        if (rootObj.TransactionDetail.Payment) {
           detail.payment = Object.fromEntries(
-            Object.entries(req.TransactionDetail.Payment).map(([k, v]) => [normalizeKey(k), normalizeValue(v)])
+            Object.entries(rootObj.TransactionDetail.Payment).map(([k, v]) => [normalizeKey(k), normalizeValue(v)])
           );
         }
 
@@ -66,4 +75,4 @@ async function parseAckrooTPSRequestsFromXML(xmlString) {
   return results;
 }
 
-module.exports = { parseAckrooTPSRequestsFromXML };
+module.exports = { parseTPSRequestsFromXML };
