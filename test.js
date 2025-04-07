@@ -1,8 +1,9 @@
 const fs = require('fs');
-const { parseAckrooTPSRequestsFromXML } = require('./parseTPSLogFn');
+const { parseTPSRequestsFromXML } = require('./parseTPSLogFn');
 
 (async () => {
-  const rawXML = fs.readFileSync('TPSlog.txt', 'utf8');
-  const jsonOutput = await parseAckrooTPSRequestsFromXML(rawXML);
-  console.log(JSON.stringify(jsonOutput, null, 2));
+  const input = fs.readFileSync('testXML.txt', 'utf-8');
+  const result = await parseTPSRequestsFromXML(input);
+  console.log(JSON.stringify(result, null, 2));
 })();
+
