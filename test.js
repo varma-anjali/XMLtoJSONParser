@@ -1,8 +1,14 @@
 const fs = require('fs');
-const { parseAckrooTPSRequestsFromXML } = require('./parseTPSLogFn');
+const { parseAnyTPSXML } = require('./parseTPSLogFn');
 
 (async () => {
-  const rawXML = fs.readFileSync('TPSlog.txt', 'utf8');
-  const jsonOutput = await parseAckrooTPSRequestsFromXML(rawXML);
-  console.log(JSON.stringify(jsonOutput, null, 2));
+  const xml = fs.readFileSync('testXML.txt', 'utf-8');
+
+  try {
+    const result = await parseAnyTPSXML(xml);
+    console.log(JSON.stringify(result, null, 2));
+  } catch (e) {
+    console.error('Parsing failed:', e.message);
+  }
 })();
+
